@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmmiSense — Triple Sensor Telemetry (MQ-2, MQ-135 & SGP30)</title>
+  <meta name="description" content="Real-time ESP32 telemetry dashboard for MQ-2, MQ-135, and SGP30 sensors." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="glow-orb glow-top-left"></div>
+  <div class="glow-orb glow-top-right"></div>
+
+  <div class="app-container">
+    
+    <header class="dashboard-header">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v8"></path>
+            <path d="m4.93 10.93 1.41 1.41"></path>
+            <path d="M2 18h2"></path>
+            <path d="M20 18h2"></path>
+            <path d="m19.07 10.93-1.41 1.41"></path>
+            <path d="M22 22H2"></path>
+            <path d="m8 22 4-10 4 10"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="title-row">
+            <h1>EmmiSense</h1>
+            <span class="badge badge-tech">MQ-2 + MQ-135 + SGP30</span>
+          </div>
+          <p class="subtitle">Triple Sensor Environmental Gas & Air Quality Telemetry</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="control-group">
+          <label class="control-label" for="dataSourceSelect">SOURCE</label>
+          <select id="dataSourceSelect" class="styled-select" onchange="toggleDataSource()">
+            <option value="simulation">Demo Simulation</option>
+            <option value="http" selected>ESP32 HTTP Polling</option>
+            <option value="ws">ESP32 WebSocket</option>
+          </select>
+        </div>
+
+        <div class="control-group" id="ipConfigGroup">
+          <label class="control-label" for="espIpInput">ESP32 HOST / IP</label>
+          <div class="ip-input-wrapper">
+            <input type="text" id="espIpInput" value="192.168.4.1" placeholder="192.168.4.1" />
+          </div>
+        </div>
+
+        <div class="connection-status-box">
+          <div class="status-indicator">
+            <span class="status-dot" id="connectionDot"></span>
+            <span class="status-text" id="connectionStatusText">Connecting...</span>
+          </div>
+          <button id="reconnectBtn" class="btn btn-outline" onclick="triggerManualReconnect()">Reconnect</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="overview-banner">
+      <div class="banner-card index-card" id="overallIndexCard">
+        <div class="banner-meta">
+          <span class="card-tag">ENVIRONMENTAL SAFETY INDEX</span>
+          <div class="status-pill pill-low" id="overallIndexBadge">EXCELLENT / CLEAN</div>
+        </div>
+        <div class="index-display">
+          <div class="index-score-wrap">
+            <span class="index-score" id="overallScoreVal">12</span>
+            <span class="index-score-max">/ 100</span>
+          </div>
+          <div class="index-desc-wrap">
+            <h3 id="overallIndexTitle">Clean Ambient Atmospheric Baseline</h3>
+            <p id="overallIndexDesc">MQ-2, MQ-135, and SGP30 sensors are operating within optimal environmental parameters.</p>
+          </div>
+        </div>
+        <div class="meter-bar-track">
+          <div class="meter-bar-fill" id="overallMeterFill" style="width: 12%"></div>
+        </div>
+      </div>
+
+      <div class="banner-stats-grid">
+        <div class="mini-stat-card">
+          <span class="stat-label">POLL RATE</span>
+          <div class="stat-value" id="sampleRateVal">3.0<span class="stat-unit">s</span></div>
+          <span class="stat-sub" id="dataPacketCount">Packets: 0</span>
+        </div>
+        <div class="mini-stat-card">
+          <span class="stat-label">SESSION TIME</span>
+          <div class="stat-value" id="sessionTimeVal">00:00</div>
+          <span class="stat-sub">Logging active</span>
+        </div>
+        <div class="mini-stat-card">
+          <span class="stat-label">I2C BUS STATUS</span>
+          <div class="stat-value" style="font-size: 1.25rem; color: var(--accent-teal-dark);">SDA 21 / SCL 22</div>
+          <span class="stat-sub">SGP30 Active</span>
+        </div>
+        <div class="mini-stat-card">
+          <span class="stat-label">SESSION EXPORT</span>
+          <button class="btn btn-accent btn-sm" onclick="exportCSV()">Export CSV</button>
+          <span class="stat-sub" id="loggedRowCount">0 records</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-heading-row">
+      <div class="section-title-wrap">
+        <h2>Active Sensor Telemetry</h2>
+        <p>Live streams from MQ-2 (GPIO 34), MQ-135 (GPIO 35), and SGP30 (I2C GPIO 21/22).</p>
+      </div>
+      <div class="chart-timeframe-tag">Live 5 min rolling window</div>
+    </div>
+
+    <!-- MAIN SENSOR CARDS GRID -->
+    <div class="sensor-grid">
+
+      <!-- 1. MQ-2 -->
+      <div class="sensor-card card-active-mq2" id="card-mq2">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip" style="color: var(--accent-teal); font-weight: 800;">ACTIVE HARDWARE • GPIO 34</span>
+            <h3>MQ-2 • Combustible Gas & Smoke <span class="chem-formula">(LPG / Smoke)</span></h3>
+          </div>
+          <span class="threshold-pill pill-safe" id="badge-mq2">SAFE</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value" id="val-mq2">0.00</span>
+            <span class="reading-unit">ppm</span>
+          </div>
+          <div class="limits-info">
+            <span>Warn: &gt;<b id="lim-warn-mq2">15</b></span>
+            <span>Danger: &gt;<b id="lim-dang-mq2">35</b></span>
+          </div>
+        </div>
+        <div class="chart-container"><canvas id="chart-mq2"></canvas></div>
+        <div class="card-footer">
+          <span class="raw-label">Raw: <code id="raw-mq2">-- ADC</code></span>
+          <span class="raw-label">Volt: <code id="volt-mq2">-- V</code></span>
+          <span class="peak-label">Peak: <b id="peak-mq2">0.00</b> ppm</span>
+        </div>
+      </div>
+
+      <!-- 2. MQ-135 -->
+      <div class="sensor-card card-active-mq135" id="card-mq135">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip" style="color: var(--accent-purple); font-weight: 800;">ACTIVE HARDWARE • GPIO 35</span>
+            <h3>MQ-135 • Air Quality & Ammonia <span class="chem-formula">(NH₃ / AQ)</span></h3>
+          </div>
+          <span class="threshold-pill pill-safe" id="badge-mq135">SAFE</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value" id="val-mq135">0.00</span>
+            <span class="reading-unit">ppm</span>
+          </div>
+          <div class="limits-info">
+            <span>Warn: &gt;<b id="lim-warn-mq135">15</b></span>
+            <span>Danger: &gt;<b id="lim-dang-mq135">35</b></span>
+          </div>
+        </div>
+        <div class="chart-container"><canvas id="chart-mq135"></canvas></div>
+        <div class="card-footer">
+          <span class="raw-label">Raw: <code id="raw-mq135">-- ADC</code></span>
+          <span class="raw-label">Volt: <code id="volt-mq135">-- V</code></span>
+          <span class="peak-label">Peak: <b id="peak-mq135">0.00</b> ppm</span>
+        </div>
+      </div>
+
+      <!-- 3. SGP30 TVOC -->
+      <div class="sensor-card card-active-sgp30" id="card-tvoc">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip" style="color: var(--accent-orange); font-weight: 800;">ACTIVE DIGITAL • I2C (GPIO 21/22)</span>
+            <h3>SGP30 • Total VOCs <span class="chem-formula">(TVOC)</span></h3>
+          </div>
+          <span class="threshold-pill pill-safe" id="badge-tvoc">SAFE</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value" id="val-tvoc">0</span>
+            <span class="reading-unit">ppb</span>
+          </div>
+          <div class="limits-info">
+            <span>Warn: &gt;<b id="lim-warn-tvoc">200</b></span>
+            <span>Danger: &gt;<b id="lim-dang-tvoc">500</b></span>
+          </div>
+        </div>
+        <div class="chart-container"><canvas id="chart-tvoc"></canvas></div>
+        <div class="card-footer">
+          <span class="raw-label">Bus: <code>I2C 0x58</code></span>
+          <span class="peak-label">Peak: <b id="peak-tvoc">0</b> ppb</span>
+        </div>
+      </div>
+
+      <!-- 4. SGP30 eCO2 -->
+      <div class="sensor-card card-active-sgp30-cyan" id="card-eco2">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip" style="color: var(--accent-cyan); font-weight: 800;">ACTIVE DIGITAL • I2C (GPIO 21/22)</span>
+            <h3>SGP30 • Equivalent CO₂ <span class="chem-formula">(eCO₂)</span></h3>
+          </div>
+          <span class="threshold-pill pill-safe" id="badge-eco2">SAFE</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value" id="val-eco2">400</span>
+            <span class="reading-unit">ppm</span>
+          </div>
+          <div class="limits-info">
+            <span>Warn: &gt;<b id="lim-warn-eco2">1000</b></span>
+            <span>Danger: &gt;<b id="lim-dang-eco2">2000</b></span>
+          </div>
+        </div>
+        <div class="chart-container"><canvas id="chart-eco2"></canvas></div>
+        <div class="card-footer">
+          <span class="raw-label">Bus: <code>I2C 0x58</code></span>
+          <span class="peak-label">Peak: <b id="peak-eco2">400</b> ppm</span>
+        </div>
+      </div>
+
+      <!-- 5. INACTIVE SENSOR: CARBON MONOXIDE (CO) -->
+      <div class="sensor-card card-inactive" id="card-co">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip">NOT SENSED / INACTIVE</span>
+            <h3>Carbon Monoxide <span class="chem-formula">(CO)</span></h3>
+          </div>
+          <span class="threshold-pill pill-neutral">DISABLED</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value">0.00</span>
+            <span class="reading-unit">ppm</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="raw-label">Channel: <code>Unconnected</code></span>
+        </div>
+      </div>
+
+      <!-- 6. INACTIVE SENSOR: NITROGEN DIOXIDE (NO2) -->
+      <div class="sensor-card card-inactive" id="card-no2">
+        <div class="card-header">
+          <div class="sensor-info">
+            <span class="sensor-chip">NOT SENSED / INACTIVE</span>
+            <h3>Nitrogen Dioxide <span class="chem-formula">(NO₂)</span></h3>
+          </div>
+          <span class="threshold-pill pill-neutral">DISABLED</span>
+        </div>
+        <div class="reading-row">
+          <div class="reading-value-wrap">
+            <span class="reading-value">0.00</span>
+            <span class="reading-unit">ppm</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="raw-label">Channel: <code>Unconnected</code></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- REGISTER MONITOR PANEL -->
+    <section class="test-bench-section">
+      <div class="test-bench-header">
+        <div class="test-title-wrap">
+          <div class="tag-pill">HARDWARE REGISTER MONITOR</div>
+          <h2>Sensor Bench Testing & Register Monitor</h2>
+          <p>Inspect raw ADC values, calculated voltages, and digital I2C registers for GPIO 34, GPIO 35, and SGP30.</p>
+        </div>
+        <div class="test-actions">
+          <button class="btn btn-outline" onclick="triggerManualFetch()">Manual Read Trigger</button>
+          <button class="btn btn-accent" onclick="captureSnapshot()">Log Timestamped Snapshot</button>
+          <button class="btn btn-danger-outline" onclick="clearSnapshots()">Clear Table</button>
+        </div>
+      </div>
+
+      <div class="raw-telemetry-panel">
+        <h4 class="raw-panel-title">LIVE TRIPLE SENSOR HARDWARE REGISTERS</h4>
+        <div class="raw-grid">
+          <div class="raw-box" style="border-color: var(--accent-teal);">
+            <span class="raw-k">MQ-2 Raw ADC (GPIO 34)</span>
+            <span class="raw-v" id="reg-mq2-adc" style="color: var(--accent-teal);">-- ADC</span>
+          </div>
+          <div class="raw-box" style="border-color: var(--accent-purple);">
+            <span class="raw-k">MQ-135 Raw ADC (GPIO 35)</span>
+            <span class="raw-v" id="reg-mq135-adc" style="color: var(--accent-purple);">-- ADC</span>
+          </div>
+          <div class="raw-box" style="border-color: var(--accent-orange);">
+            <span class="raw-k">SGP30 TVOC (I2C)</span>
+            <span class="raw-v" id="reg-sgp-tvoc" style="color: var(--accent-orange);">-- ppb</span>
+          </div>
+          <div class="raw-box" style="border-color: var(--accent-cyan);">
+            <span class="raw-k">SGP30 eCO2 (I2C)</span>
+            <span class="raw-v" id="reg-sgp-eco2" style="color: var(--accent-cyan);">-- ppm</span>
+          </div>
+          <div class="raw-box">
+            <span class="raw-k">MQ-2 / MQ-135 Volts</span>
+            <span class="raw-v" id="reg-mq2-volts">-- V</span>
+          </div>
+          <div class="raw-box">
+            <span class="raw-k">SGP30 I2C Status</span>
+            <span class="raw-v" id="reg-i2c-status">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="snapshot-table-wrap">
+        <table class="snapshot-table" id="snapshotTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Snapshot Label</th>
+              <th>MQ-2 (ppm)</th>
+              <th>MQ-135 (ppm)</th>
+              <th>SGP30 TVOC (ppb)</th>
+              <th>SGP30 eCO₂ (ppm)</th>
+              <th>Analog ADC</th>
+              <th>Analog Volts</th>
+              <th>Safety Level</th>
+            </tr>
+          </thead>
+          <tbody id="snapshotTableBody">
+            <tr class="empty-row"><td colspan="9">No snapshots captured yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- THRESHOLD CONFIGURATION -->
+    <section class="config-section">
+      <div class="config-header">
+        <div>
+          <h3>Safety Threshold & Calibration Settings</h3>
+          <p>Configure warning and danger limits for active MQ-2, MQ-135, and SGP30 channels.</p>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="resetDefaultThresholds()">Reset Defaults</button>
+      </div>
+
+      <div class="threshold-inputs-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="thresh-item" style="border: 1.5px solid var(--accent-teal); border-radius: var(--radius-md); padding: 12px;">
+          <label style="color: var(--accent-teal); font-weight: 800;">MQ-2 Smoke (ppm) [W/D]</label>
+          <div class="dual-input">
+            <input type="number" id="cfg-warn-mq2" value="15" onchange="saveThresholds()">
+            <input type="number" id="cfg-dang-mq2" value="35" onchange="saveThresholds()">
+          </div>
+        </div>
+        <div class="thresh-item" style="border: 1.5px solid var(--accent-purple); border-radius: var(--radius-md); padding: 12px;">
+          <label style="color: var(--accent-purple); font-weight: 800;">MQ-135 NH3 (ppm) [W/D]</label>
+          <div class="dual-input">
+            <input type="number" id="cfg-warn-mq135" value="15" onchange="saveThresholds()">
+            <input type="number" id="cfg-dang-mq135" value="35" onchange="saveThresholds()">
+          </div>
+        </div>
+        <div class="thresh-item" style="border: 1.5px solid var(--accent-orange); border-radius: var(--radius-md); padding: 12px;">
+          <label style="color: var(--accent-orange); font-weight: 800;">SGP30 TVOC (ppb) [W/D]</label>
+          <div class="dual-input">
+            <input type="number" id="cfg-warn-tvoc" value="200" onchange="saveThresholds()">
+            <input type="number" id="cfg-dang-tvoc" value="500" onchange="saveThresholds()">
+          </div>
+        </div>
+        <div class="thresh-item" style="border: 1.5px solid var(--accent-cyan); border-radius: var(--radius-md); padding: 12px;">
+          <label style="color: var(--accent-cyan); font-weight: 800;">SGP30 eCO₂ (ppm) [W/D]</label>
+          <div class="dual-input">
+            <input type="number" id="cfg-warn-eco2" value="1000" onchange="saveThresholds()">
+            <input type="number" id="cfg-dang-eco2" value="2000" onchange="saveThresholds()">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="dashboard-footer">
+      <div><strong>EmmiSense v1.2</strong> • Triple Sensor: MQ-2 (GPIO 34), MQ-135 (GPIO 35), SGP30 (GPIO 21/22)</div>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

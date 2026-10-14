@@ -1,0 +1,12 @@
+/* Card Glow for SGP30 Active Digital Sensors */
+.sensor-card.card-active-sgp30 {
+  border: 2px solid var(--accent-orange);
+  box-shadow: 0 6px 24px -2px rgba(249, 115, 22, 0.18);
+  position: relative;
+}
+
+.sensor-card.card-active-sgp30-cyan {
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 6px 24px -2px rgba(14, 165, 233, 0.18);
+  position: relative;
+}
