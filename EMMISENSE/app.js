@@ -55,6 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourceSelector = document.getElementById('dataSourceSelect');
   if (sourceSelector) {
     state.dataSource = sourceSelector.value;
+    const ipGroup = document.getElementById('ipConfigGroup');
+    const serialBtn = document.getElementById('serialConnectBtn');
+    if (ipGroup) ipGroup.style.display = (state.dataSource === 'http' || state.dataSource === 'ws') ? 'flex' : 'none';
+    if (serialBtn) serialBtn.style.display = (state.dataSource === 'serial') ? 'inline-flex' : 'none';
   }
 
   const ipInput = document.getElementById('espIpInput');
@@ -169,7 +173,7 @@ function resetDefaultThresholds() {
   applyThresholdsToUI();
 }
 
-function createChartConfig(colorHex, label, unit) {
+function createChartConfig(colorHex, label, unit, suggestedMax) {
   return {
     type: 'line',
     data: {
@@ -178,48 +182,67 @@ function createChartConfig(colorHex, label, unit) {
         label: `${label} (${unit})`,
         data: [],
         borderColor: colorHex,
-        backgroundColor: colorHex + '18',
-        borderWidth: 2.5,
-        tension: 0.35,
+        backgroundColor: colorHex + '22',
+        borderWidth: 2,
+        tension: 0.42,
         fill: true,
         pointRadius: 0,
         pointHoverRadius: 5,
-        pointHitRadius: 10,
-        pointBackgroundColor: colorHex
+        pointHitRadius: 14,
+        pointBackgroundColor: colorHex,
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: false,
+      animation: { duration: 220, easing: 'easeInOutQuad' },
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
           backgroundColor: '#0f172a',
-          titleColor: '#94a3b8',
-          bodyColor: '#ffffff',
-          titleFont: { size: 11, family: "'Plus Jakarta Sans', sans-serif" },
-          bodyFont: { size: 13, weight: 'bold', family: "'Plus Jakarta Sans', sans-serif" },
-          borderColor: 'rgba(255,255,255,0.08)',
+          titleColor: '#64748b',
+          bodyColor: '#f8fafc',
+          titleFont: { size: 10, family: "'Plus Jakarta Sans', sans-serif", weight: '600' },
+          bodyFont: { size: 13, weight: '700', family: "'Plus Jakarta Sans', sans-serif" },
+          borderColor: 'rgba(255,255,255,0.10)',
           borderWidth: 1,
-          padding: 8,
+          padding: { x: 12, y: 8 },
           displayColors: false,
-          cornerRadius: 6,
+          cornerRadius: 8,
           callbacks: {
-            label: (context) => `${context.parsed.y} ${unit}`
+            label: (context) => ` ${context.parsed.y} ${unit}`
           }
         }
       },
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
       scales: {
-        x: { display: false, grid: { display: false } },
+        x: {
+          display: false,
+          grid: { display: false }
+        },
         y: {
           display: true,
           position: 'right',
-          grid: { color: '#f1f5f9', drawBorder: false },
+          beginAtZero: true,
+          suggestedMax: suggestedMax || 5,
+          grid: {
+            color: 'rgba(226, 232, 240, 0.5)',
+            lineWidth: 1,
+            drawBorder: false,
+            drawTicks: false
+          },
+          border: { display: false },
           ticks: {
             color: '#94a3b8',
-            font: { size: 10, family: "'Plus Jakarta Sans', sans-serif", weight: '600' },
-            maxTicksLimit: 4
+            font: { size: 9.5, family: "'Plus Jakarta Sans', sans-serif", weight: '600' },
+            maxTicksLimit: 3,
+            padding: 4
           }
         }
       }
@@ -228,42 +251,43 @@ function createChartConfig(colorHex, label, unit) {
 }
 
 function initCharts() {
-  // 1. MQ-2 Chart (Combustible / Smoke)
+  // 1. MQ-2: suggestedMax 5 ppm (combustible gas, clean air baseline ~0.1–2)
   const mq2Canvas = document.getElementById('chart-mq2');
   if (mq2Canvas) {
-    charts['mq2'] = new Chart(mq2Canvas.getContext('2d'), createChartConfig('#10b981', 'Combustible / Smoke', 'ppm'));
+    charts['mq2'] = new Chart(mq2Canvas.getContext('2d'), createChartConfig('#10b981', 'Combustible / Smoke', 'ppm', 5));
   }
 
-  // 2. MQ-135 Chart (Air Quality / NH3)
+  // 2. MQ-135: suggestedMax 2 ppm (air quality, very low clean air range)
   const mq135Canvas = document.getElementById('chart-mq135');
   if (mq135Canvas) {
-    charts['mq135'] = new Chart(mq135Canvas.getContext('2d'), createChartConfig('#8b5cf6', 'Air Quality / NH3', 'ppm'));
+    charts['mq135'] = new Chart(mq135Canvas.getContext('2d'), createChartConfig('#8b5cf6', 'Air Quality / NH3', 'ppm', 2));
   }
 
-  // 3. MQ-7 Chart (Carbon Monoxide CO)
+  // 3. MQ-7 CO: suggestedMax 5 ppm
   const coCanvas = document.getElementById('chart-co');
   if (coCanvas) {
-    charts['co'] = new Chart(coCanvas.getContext('2d'), createChartConfig('#f97316', 'Carbon Monoxide (CO)', 'ppm'));
+    charts['co'] = new Chart(coCanvas.getContext('2d'), createChartConfig('#f97316', 'Carbon Monoxide (CO)', 'ppm', 5));
   }
 
-  // 4. MQ-137 Chart (Nitrogen Dioxide NO2)
+  // 4. MQ-137 NO2: suggestedMax 0.05 ppm (ppb-scale gas)
   const no2Canvas = document.getElementById('chart-no2');
   if (no2Canvas) {
-    charts['no2'] = new Chart(no2Canvas.getContext('2d'), createChartConfig('#ec4899', 'Nitrogen Dioxide (NO₂)', 'ppm'));
+    charts['no2'] = new Chart(no2Canvas.getContext('2d'), createChartConfig('#ec4899', 'Nitrogen Dioxide (NO₂)', 'ppm', 0.05));
   }
 
-  // 5. CO2 & VOC Chart
+  // 5. CO2: suggestedMax 600 ppm (ambient indoor range)
   const co2Canvas = document.getElementById('chart-co2');
   if (co2Canvas) {
-    charts['co2'] = new Chart(co2Canvas.getContext('2d'), createChartConfig('#0ea5e9', 'Carbon Dioxide (CO₂)', 'ppm'));
+    charts['co2'] = new Chart(co2Canvas.getContext('2d'), createChartConfig('#0ea5e9', 'Carbon Dioxide (CO₂)', 'ppm', 600));
   }
 
-  // 6. Ambient Environment Chart
+  // 6. Ambient: suggestedMax 35°C
   const envCanvas = document.getElementById('chart-env');
   if (envCanvas) {
-    charts['env'] = new Chart(envCanvas.getContext('2d'), createChartConfig('#059669', 'Temperature', '°C'));
+    charts['env'] = new Chart(envCanvas.getContext('2d'), createChartConfig('#059669', 'Temperature', '°C', 35));
   }
 }
+
 
 function pushChartData(timeLabel, mq2Ppm, mq135Ppm, coPpm, no2Ppm, co2Ppm, tempC) {
   const chartFeeds = [
@@ -288,11 +312,26 @@ function pushChartData(timeLabel, mq2Ppm, mq135Ppm, coPpm, no2Ppm, co2Ppm, tempC
   });
 }
 
+let serialPort = null;
+let serialReader = null;
+let serialReadLoopRunning = false;
+
 function toggleDataSource() {
   const select = document.getElementById('dataSourceSelect');
+  const ipGroup = document.getElementById('ipConfigGroup');
+  const serialBtn = document.getElementById('serialConnectBtn');
+
   if (select) {
     state.dataSource = select.value;
   }
+
+  if (ipGroup) {
+    ipGroup.style.display = (state.dataSource === 'http' || state.dataSource === 'ws') ? 'flex' : 'none';
+  }
+  if (serialBtn) {
+    serialBtn.style.display = (state.dataSource === 'serial') ? 'inline-flex' : 'none';
+  }
+
   restartConnection();
 }
 
@@ -314,8 +353,15 @@ function startTelemetry() {
     state.pollTimer = setInterval(simulateSensorTick, CONFIG.POLL_INTERVAL_MS);
     simulateSensorTick();
   } else if (state.dataSource === 'http') {
+    setConnectionStatus(false, `Connecting to http://${state.espHost}...`);
     pollESP32Http();
     state.pollTimer = setInterval(pollESP32Http, CONFIG.POLL_INTERVAL_MS);
+  } else if (state.dataSource === 'serial') {
+    if (!serialPort) {
+      setConnectionStatus(false, 'Click "Connect USB Port" to begin stream');
+    } else {
+      setConnectionStatus(true, 'USB Serial Active (115200 baud)');
+    }
   } else if (state.dataSource === 'ws') {
     connectESP32WebSocket();
   }
@@ -340,6 +386,94 @@ function stopTelemetry() {
   }
 }
 
+async function connectESP32Serial() {
+  if (!('serial' in navigator)) {
+    alert("Web Serial API is not supported in this browser.\nPlease use Google Chrome or Microsoft Edge, or switch to 'ESP32 HTTP Polling' (Wi-Fi).");
+    return;
+  }
+
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    serialReadLoopRunning = true;
+    setConnectionStatus(true, 'ESP32 USB Serial Connected (115200 baud)');
+    
+    const connectBtn = document.getElementById('serialConnectBtn');
+    if (connectBtn) {
+      connectBtn.innerText = 'Disconnect USB';
+      connectBtn.classList.remove('btn-accent');
+      connectBtn.classList.add('btn-danger-outline');
+      connectBtn.onclick = disconnectESP32Serial;
+    }
+
+    readSerialStream();
+  } catch (err) {
+    console.error("Serial connection failed:", err);
+    setConnectionStatus(false, `Serial Failed: ${err.message || 'Cancelled'}`);
+  }
+}
+
+async function disconnectESP32Serial() {
+  serialReadLoopRunning = false;
+  if (serialReader) {
+    try {
+      await serialReader.cancel();
+    } catch (e) {}
+    serialReader = null;
+  }
+  if (serialPort) {
+    try {
+      await serialPort.close();
+    } catch (e) {}
+    serialPort = null;
+  }
+  const connectBtn = document.getElementById('serialConnectBtn');
+  if (connectBtn) {
+    connectBtn.innerText = 'Connect USB Port';
+    connectBtn.classList.remove('btn-danger-outline');
+    connectBtn.classList.add('btn-accent');
+    connectBtn.onclick = connectESP32Serial;
+  }
+  setConnectionStatus(false, 'USB Serial Disconnected');
+}
+
+async function readSerialStream() {
+  let buffer = '';
+  while (serialPort && serialPort.readable && serialReadLoopRunning) {
+    try {
+      const textDecoder = new TextDecoderStream();
+      const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+      const reader = textDecoder.readable.getReader();
+      serialReader = reader;
+
+      while (serialReadLoopRunning) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Retain unfinished tail line
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('JSON:')) {
+              try {
+                const data = JSON.parse(trimmed.substring(5));
+                processTelemetryPacket(data, 1);
+              } catch (parseErr) {
+                console.warn("Serial JSON parse error:", parseErr);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Serial stream error:", err);
+      break;
+    }
+  }
+}
+
 async function pollESP32Http() {
   const url = `http://${state.espHost}${CONFIG.HTTP_ENDPOINT}`;
   const startTime = performance.now();
@@ -359,7 +493,7 @@ async function pollESP32Http() {
     processTelemetryPacket(data, latency);
   } catch (err) {
     console.warn(`HTTP poll failed to ${url}:`, err.message);
-    setConnectionStatus(false, `ESP32 Unreachable (${state.espHost})`);
+    setConnectionStatus(false, `ESP32 Unreachable at ${state.espHost} (Connect Wi-Fi to 'EmmiSense_AP' or use USB)`);
   }
 }
 
@@ -479,111 +613,82 @@ function processTelemetryPacket(data, latencyMs = 0) {
   // 1. Parse MQ-2 (Combustible Gas / Smoke on GPIO 34)
   let mq2_adc = data.mq2_adc !== undefined 
     ? parseInt(data.mq2_adc) 
-    : (data.raw?.mq2_adc !== undefined ? parseInt(data.raw.mq2_adc) : 749);
+    : (data.raw?.mq2_adc !== undefined ? parseInt(data.raw.mq2_adc) : 0);
 
   let mq2_volts = data.mq2_volts !== undefined 
     ? parseFloat(data.mq2_volts) 
-    : parseFloat(((mq2_adc / 4095.0) * 3.3 * 2.0).toFixed(2));
+    : parseFloat(((mq2_adc / 4095.0) * 3.3).toFixed(2));
 
-  let mq2_ppm = 1.15;
-  if (mq2_adc > 50) {
-    // Calibrated clean air baseline for MQ-2 (ADC 700 - 800 -> 1.05 - 1.28 ppm)
-    mq2_ppm = parseFloat((0.40 + ((mq2_adc - 100) / 1400.0) * 1.50).toFixed(2));
-  } else if (data.mq2_ppm !== undefined && parseFloat(data.mq2_ppm) > 0 && parseFloat(data.mq2_ppm) < 30) {
-    mq2_ppm = parseFloat(data.mq2_ppm);
-  }
+  let mq2_ppm = data.mq2_ppm !== undefined 
+    ? parseFloat(data.mq2_ppm) 
+    : (mq2_adc > 50 ? parseFloat((0.40 + ((mq2_adc - 100) / 1400.0) * 1.50).toFixed(2)) : 1.15);
 
-  // 2. Parse MQ-135 (Air Quality & Ammonia on GPIO 35) — Calibrated to read SOO LOW (~0.08 - 0.15 ppm)
+  // 2. Parse MQ-135 (Air Quality & Ammonia on GPIO 35)
   let mq135_adc = data.mq135_adc !== undefined 
     ? parseInt(data.mq135_adc) 
-    : (data.raw?.mq135_adc !== undefined ? parseInt(data.raw.mq135_adc) : 310);
+    : (data.raw?.mq135_adc !== undefined ? parseInt(data.raw.mq135_adc) : 0);
 
   let mq135_volts = data.mq135_volts !== undefined 
     ? parseFloat(data.mq135_volts) 
     : parseFloat(((mq135_adc / 4095.0) * 3.3).toFixed(2));
 
-  // In ambient room air, MQ-135 reads very low (so low as requested)
-  let mq135_ppm = 0.09;
-  if (mq135_adc > 50) {
-    mq135_ppm = parseFloat((0.04 + ((mq135_adc - 100) / 1400.0) * 0.22).toFixed(2));
-  } else if (data.mq135_ppm !== undefined && parseFloat(data.mq135_ppm) > 0) {
-    mq135_ppm = parseFloat((parseFloat(data.mq135_ppm) * 0.20).toFixed(2));
-  }
+  let mq135_ppm = data.mq135_ppm !== undefined 
+    ? parseFloat(data.mq135_ppm) 
+    : (mq135_adc > 50 ? parseFloat((0.04 + ((mq135_adc - 100) / 1400.0) * 0.22).toFixed(2)) : 0.09);
 
-  // 3. Parse MQ-7 (Carbon Monoxide CO)
-  let co_ppm = data.co !== undefined && parseFloat(data.co) > 0 && parseFloat(data.co) < 40 
-    ? parseFloat(data.co) 
-    : (data.mq7_co !== undefined && parseFloat(data.mq7_co) > 0 && parseFloat(data.mq7_co) < 40 ? parseFloat(data.mq7_co) : 0);
-
-  let co_adc = data.mq7_adc !== undefined && parseInt(data.mq7_adc) > 0 && parseInt(data.mq7_adc) < 1000 
+  // 3. Parse MQ-7 (Carbon Monoxide CO on GPIO 32)
+  let co_adc = data.mq7_adc !== undefined 
     ? parseInt(data.mq7_adc) 
-    : (data.raw?.co_adc !== undefined && parseInt(data.raw.co_adc) > 0 && parseInt(data.raw.co_adc) < 1000 ? parseInt(data.raw.co_adc) : 480);
+    : (data.raw?.mq7_adc !== undefined ? parseInt(data.raw.mq7_adc) : (data.raw?.co_adc !== undefined ? parseInt(data.raw.co_adc) : 0));
 
-  let co_volts = data.mq7_volts !== undefined && parseFloat(data.mq7_volts) > 0 && parseFloat(data.mq7_volts) < 2.5 
+  let co_volts = data.mq7_volts !== undefined 
     ? parseFloat(data.mq7_volts) 
     : parseFloat(((co_adc / 4095.0) * 3.3).toFixed(2));
 
-  if (co_ppm <= 0.01 || co_ppm > 40) {
-    const t = Date.now() / 3200;
-    co_ppm = parseFloat((1.85 + Math.sin(t) * 0.25).toFixed(2));
-    co_adc = Math.round(480 + Math.sin(t) * 25);
-    co_volts = parseFloat(((co_adc / 4095.0) * 3.3).toFixed(2));
+  let co_ppm = data.mq7_ppm !== undefined 
+    ? parseFloat(data.mq7_ppm) 
+    : (data.co !== undefined ? parseFloat(data.co) : (data.mq7_co !== undefined ? parseFloat(data.mq7_co) : 0.0));
+
+  if (co_ppm === 0 && co_adc > 50) {
+    co_ppm = parseFloat((0.50 + ((co_adc - 100) / 1400.0) * 3.50).toFixed(2));
   }
 
-  // 4. Parse MQ-137 / NO2 (Nitrogen Dioxide) — Calibrated to read SOO LOW (~0.008 - 0.012 ppm)
-  let no2_ppm = data.no2 !== undefined && parseFloat(data.no2) > 0 && parseFloat(data.no2) < 0.5 
+  // 4. Parse MQ-137 / NO2 (Nitrogen Dioxide)
+  let no2_ppm = data.no2 !== undefined 
     ? parseFloat(data.no2) 
-    : 0.009;
+    : (data.mq137_no2 !== undefined ? parseFloat(data.mq137_no2) : 0.009);
 
-  let no2_adc = data.mq137_adc !== undefined && parseInt(data.mq137_adc) > 0 && parseInt(data.mq137_adc) < 1000 
+  let no2_adc = data.mq137_adc !== undefined 
     ? parseInt(data.mq137_adc) 
-    : 290;
+    : (data.raw?.no2_adc !== undefined ? parseInt(data.raw.no2_adc) : 290);
 
-  let no2_volts = data.mq137_volts !== undefined && parseFloat(data.mq137_volts) > 0 && parseFloat(data.mq137_volts) < 2.0 
+  let no2_volts = data.mq137_volts !== undefined 
     ? parseFloat(data.mq137_volts) 
     : parseFloat(((no2_adc / 4095.0) * 3.3).toFixed(2));
 
-  if (no2_ppm <= 0.001 || no2_ppm > 0.5) {
-    const t = Date.now() / 3800;
-    no2_ppm = parseFloat((0.009 + Math.sin(t) * 0.002).toFixed(3));
-    no2_adc = Math.round(290 + Math.sin(t) * 15);
-    no2_volts = parseFloat(((no2_adc / 4095.0) * 3.3).toFixed(2));
-  }
-
   // 5. Parse SCD40 / CO2 & TVOC
-  let co2_ppm = data.scd40_co2 !== undefined && parseFloat(data.scd40_co2) > 200 && parseFloat(data.scd40_co2) < 2500 
+  let co2_ppm = data.scd40_co2 !== undefined 
     ? parseFloat(data.scd40_co2) 
-    : (data.co2 !== undefined && parseFloat(data.co2) > 200 && parseFloat(data.co2) < 2500 ? parseFloat(data.co2) : 0);
+    : (data.co2 !== undefined ? parseFloat(data.co2) : (data.sgp30_eco2 !== undefined ? parseFloat(data.sgp30_eco2) : 408));
 
-  let tvoc_ppb = data.tvoc !== undefined && parseInt(data.tvoc) > 0 && parseInt(data.tvoc) < 500 
+  let tvoc_ppb = data.tvoc !== undefined 
     ? parseInt(data.tvoc) 
-    : (data.sgp30_tvoc !== undefined && parseInt(data.sgp30_tvoc) > 0 && parseInt(data.sgp30_tvoc) < 500 ? parseInt(data.sgp30_tvoc) : 18);
+    : (data.sgp30_tvoc !== undefined ? parseInt(data.sgp30_tvoc) : 18);
 
-  if (co2_ppm <= 200 || co2_ppm > 2500) {
-    const t = Date.now() / 4200;
-    co2_ppm = Math.round(408 + Math.sin(t) * 12);
-  }
-  const sgp_status = 'ONLINE';
+  const sgp_status = data.sgp30_status || 'ONLINE';
 
   // 6. Parse Ambient Environment
-  let temp_c = data.temp !== undefined && parseFloat(data.temp) > 0 && parseFloat(data.temp) < 60 ? parseFloat(data.temp) : 24.5;
-  let hum_pct = data.humidity !== undefined && parseFloat(data.humidity) > 0 && parseFloat(data.humidity) <= 100 ? parseFloat(data.humidity) : 52.0;
-  let press_hpa = data.pressure !== undefined && parseFloat(data.pressure) > 800 && parseFloat(data.pressure) < 1200 ? parseFloat(data.pressure) : 1013.2;
+  let temp_c = data.temp !== undefined ? parseFloat(data.temp) : 24.5;
+  let hum_pct = data.humidity !== undefined ? parseFloat(data.humidity) : 52.0;
+  let press_hpa = data.pressure !== undefined ? parseFloat(data.pressure) : 1013.2;
 
-  // Update Peaks cleanly (ignore outliers)
-  if (mq2_ppm > state.peaks.mq2 && mq2_ppm < 50) state.peaks.mq2 = mq2_ppm;
-  if (mq135_ppm > state.peaks.mq135 && mq135_ppm < 30) state.peaks.mq135 = mq135_ppm;
-  if (co_ppm > state.peaks.co && co_ppm < 50) state.peaks.co = co_ppm;
-  if (no2_ppm > state.peaks.no2 && no2_ppm < 1.0) state.peaks.no2 = no2_ppm;
-  if (co2_ppm > state.peaks.co2 && co2_ppm < 3000) state.peaks.co2 = co2_ppm;
-  if (temp_c > state.peaks.temp && temp_c < 60) state.peaks.temp = temp_c;
-
-  // Clean peak overrides if corrupted
-  if (state.peaks.co > 50) state.peaks.co = 2.45;
-  if (state.peaks.no2 > 1.0) state.peaks.no2 = 0.015;
-  if (state.peaks.co2 > 2500) state.peaks.co2 = 425;
-  if (state.peaks.temp > 60) state.peaks.temp = 24.9;
-  if (state.peaks.mq135 > 10) state.peaks.mq135 = 0.77;
+  // Update Peaks
+  if (mq2_ppm > state.peaks.mq2) state.peaks.mq2 = mq2_ppm;
+  if (mq135_ppm > state.peaks.mq135) state.peaks.mq135 = mq135_ppm;
+  if (co_ppm > state.peaks.co) state.peaks.co = co_ppm;
+  if (no2_ppm > state.peaks.no2) state.peaks.no2 = no2_ppm;
+  if (co2_ppm > state.peaks.co2) state.peaks.co2 = co2_ppm;
+  if (temp_c > state.peaks.temp) state.peaks.temp = temp_c;
 
   // Record History
   const flatRecord = {
@@ -596,8 +701,10 @@ function processTelemetryPacket(data, latencyMs = 0) {
     co2_ppm: co2_ppm,
     mq2_adc: mq2_adc,
     mq135_adc: mq135_adc,
+    mq7_adc: co_adc,
     mq2_volts: mq2_volts,
     mq135_volts: mq135_volts,
+    mq7_volts: co_volts,
     latency_ms: latencyMs
   };
   state.sessionHistory.push(flatRecord);
@@ -836,6 +943,7 @@ function renderSnapshotsTable() {
       <td><b style="color: var(--accent-cyan); font-size: 1rem;">${Math.round(s.co2_ppm || 400)}</b></td>
       <td>${s.mq2_adc}</td>
       <td>${s.mq135_adc}</td>
+      <td>${s.mq7_adc !== undefined ? s.mq7_adc : (s.co_adc || '--')}</td>
       <td><span class="badge ${s.overallScore >= 65 ? 'pill-danger' : s.overallScore >= 35 ? 'pill-warn' : 'pill-safe'}">${s.overallBadge} (${s.overallScore}/100)</span></td>
     </tr>
   `).join('');
@@ -857,7 +965,8 @@ function exportCSV() {
   const headers = [
     "Timestamp_ISO", "Local_Time", 
     "MQ2_Combustible_PPM", "MQ135_AirQuality_PPM", "MQ7_CO_PPM", "NO2_PPM", "CO2_PPM",
-    "MQ2_Raw_ADC", "MQ135_Raw_ADC", "MQ2_Voltage_V", "MQ135_Voltage_V", "Latency_ms"
+    "MQ2_Raw_ADC", "MQ135_Raw_ADC", "MQ7_Raw_ADC",
+    "MQ2_Voltage_V", "MQ135_Voltage_V", "MQ7_Voltage_V", "Latency_ms"
   ];
   
   const csvRows = [
@@ -872,8 +981,10 @@ function exportCSV() {
       row.co2_ppm || 400,
       row.mq2_adc,
       row.mq135_adc,
+      row.mq7_adc || 0,
       row.mq2_volts,
       row.mq135_volts,
+      row.mq7_volts || 0,
       row.latency_ms
     ].join(','))
   ];
