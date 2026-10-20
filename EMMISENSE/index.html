@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EmmiSense — Dual MQ-2 & MQ-135 Gas Telemetry</title>
-  <meta name="description" content="Real-time ESP32 telemetry dashboard for MQ-2 Combustible Gas & MQ-135 Air Quality sensors." />
+  <title>EmmiSense — Active Gas Telemetry (MQ-2, MQ-135, MQ-7)</title>
+  <meta name="description" content="Real-time ESP32 telemetry dashboard for MQ-2 (GPIO 34), MQ-135 (GPIO 35), and MQ-7 (GPIO 32) sensors." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -38,7 +38,7 @@
         <div>
           <div class="title-row">
             <h1>EmmiSense</h1>
-            <span class="badge badge-tech">MQ Sensor Suite (MQ-2, MQ-135, MQ-7, MQ-137, CO₂)</span>
+            <span class="badge badge-tech">Hardware Suite: MQ-2 (D34) • MQ-135 (D35) • MQ-7 (D32)</span>
           </div>
           <p class="subtitle">Smart Environmental Air Quality & Multi-Channel Gas Telemetry</p>
         </div>
@@ -50,11 +50,22 @@
         <div class="control-group">
           <label class="control-label" for="dataSourceSelect">SOURCE</label>
           <select id="dataSourceSelect" class="styled-select" onchange="toggleDataSource()">
-            <option value="simulation">Demo Simulation</option>
-            <option value="http" selected>ESP32 HTTP Polling</option>
+            <option value="http" selected>ESP32 HTTP (Wi-Fi)</option>
+            <option value="serial">ESP32 USB Serial (Cable)</option>
             <option value="ws">ESP32 WebSocket</option>
+            <option value="simulation">Demo Simulation</option>
           </select>
         </div>
+
+        <!-- ESP32 USB Serial Connect Button -->
+        <button id="serialConnectBtn" class="btn btn-accent btn-sm" style="display: none;" onclick="connectESP32Serial()">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>
+            <line x1="6" y1="11" x2="6" y2="13"></line>
+            <line x1="10" y1="11" x2="10" y2="13"></line>
+          </svg>
+          Connect USB Port
+        </button>
 
         <!-- ESP32 IP Input -->
         <div class="control-group" id="ipConfigGroup">
@@ -139,7 +150,7 @@
     <div class="section-heading-row">
       <div class="section-title-wrap">
         <h2>Active Sensor Telemetry</h2>
-        <p>Live streams from active hardware (MQ-2 on GPIO 34 & MQ-135 on GPIO 35) and all synchronized MQ telemetry channels.</p>
+        <p>Live streams from active hardware (MQ-2 on GPIO 34, MQ-135 on GPIO 35, MQ-7 on GPIO 32) and synchronized telemetry channels.</p>
       </div>
       <div class="chart-timeframe-tag">Live 5 min rolling window</div>
     </div>
@@ -166,8 +177,11 @@
             <span>Danger: &gt;<b id="lim-dang-mq2">35.0</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-mq2"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot"></span> Live</div>
+          <div class="chart-container chart-mq2-accent">
+            <canvas id="chart-mq2"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">Raw: <code id="raw-mq2">-- ADC</code></span>
@@ -195,8 +209,11 @@
             <span>Danger: &gt;<b id="lim-dang-mq135">35.0</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-mq135"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--accent-purple);"></span> Live</div>
+          <div class="chart-container chart-mq135-accent">
+            <canvas id="chart-mq135"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">Raw: <code id="raw-mq135">-- ADC</code></span>
@@ -205,11 +222,11 @@
         </div>
       </div>
 
-      <!-- 3. ACTIVE SENSOR: MQ-7 CARBON MONOXIDE (CO) -->
+      <!-- 3. ACTIVE SENSOR: MQ-7 CARBON MONOXIDE (GPIO 32) -->
       <div class="sensor-card card-active-co" id="card-co">
         <div class="card-header">
           <div class="sensor-info">
-            <span class="sensor-chip" style="color: var(--accent-orange); font-weight: 800;">ACTIVE CHANNEL • MQ-7</span>
+            <span class="sensor-chip" style="color: var(--accent-orange); font-weight: 800;">ACTIVE HARDWARE • GPIO 32</span>
             <h3>MQ-7 • Carbon Monoxide <span class="chem-formula">(CO)</span></h3>
           </div>
           <span class="threshold-pill pill-safe" id="badge-co">SAFE</span>
@@ -224,8 +241,11 @@
             <span>Danger: &gt;<b id="lim-dang-co">25.0</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-co"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--accent-orange);"></span> Live</div>
+          <div class="chart-container chart-co-accent">
+            <canvas id="chart-co"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">Raw: <code id="raw-co">-- ADC</code></span>
@@ -253,8 +273,11 @@
             <span>Danger: &gt;<b id="lim-dang-no2">0.20</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-no2"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--accent-pink);"></span> Live</div>
+          <div class="chart-container chart-no2-accent">
+            <canvas id="chart-no2"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">Raw: <code id="raw-no2">-- ADC</code></span>
@@ -282,8 +305,11 @@
             <span>Danger: &gt;<b id="lim-dang-co2">2000</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-co2"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--accent-cyan);"></span> Live</div>
+          <div class="chart-container chart-co2-accent">
+            <canvas id="chart-co2"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">TVOC: <code id="val-tvoc">18 ppb</code></span>
@@ -311,8 +337,11 @@
             <span>Pressure: <b id="val-press">1013 hPa</b></span>
           </div>
         </div>
-        <div class="chart-container">
-          <canvas id="chart-env"></canvas>
+        <div class="chart-wrapper">
+          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--status-safe);"></span> Live</div>
+          <div class="chart-container chart-env-accent">
+            <canvas id="chart-env"></canvas>
+          </div>
         </div>
         <div class="card-footer">
           <span class="raw-label">Dew Point: <code id="val-dew">13.8 °C</code></span>
@@ -366,7 +395,7 @@
             <span class="raw-v" id="reg-mq135-adc" style="color: var(--accent-purple);">-- ADC</span>
           </div>
           <div class="raw-box" style="border-color: var(--accent-orange);">
-            <span class="raw-k">MQ-7 (CO) Raw ADC</span>
+            <span class="raw-k">MQ-7 Raw ADC (GPIO 32)</span>
             <span class="raw-v" id="reg-co-adc" style="color: var(--accent-orange);">-- ADC</span>
           </div>
           <div class="raw-box" style="border-color: var(--accent-pink);">
@@ -374,15 +403,15 @@
             <span class="raw-v" id="reg-no2-adc" style="color: var(--accent-pink);">-- ADC</span>
           </div>
           <div class="raw-box">
-            <span class="raw-k">MQ-2 Analog Voltage</span>
+            <span class="raw-k">MQ-2 Analog Voltage (GPIO 34)</span>
             <span class="raw-v" id="reg-mq2-volts">-- V</span>
           </div>
           <div class="raw-box">
-            <span class="raw-k">MQ-135 Analog Voltage</span>
+            <span class="raw-k">MQ-135 Analog Voltage (GPIO 35)</span>
             <span class="raw-v" id="reg-mq135-volts">-- V</span>
           </div>
           <div class="raw-box">
-            <span class="raw-k">MQ-7 (CO) Analog Voltage</span>
+            <span class="raw-k">MQ-7 Analog Voltage (GPIO 32)</span>
             <span class="raw-v" id="reg-co-volts">-- V</span>
           </div>
           <div class="raw-box">
@@ -422,12 +451,13 @@
               <th>CO₂ (ppm)</th>
               <th>MQ-2 ADC</th>
               <th>MQ-135 ADC</th>
+              <th>MQ-7 ADC</th>
               <th>Safety Index</th>
             </tr>
           </thead>
           <tbody id="snapshotTableBody">
             <tr class="empty-row">
-              <td colspan="10">No snapshots captured yet. Click "Log Timestamped Snapshot" to capture current test state.</td>
+              <td colspan="11">No snapshots captured yet. Click "Log Timestamped Snapshot" to capture current test state.</td>
             </tr>
           </tbody>
         </table>
