@@ -1,13 +1,13 @@
 
+
 /**
  * ========================================================================================
  * EMMISENSE — MULTI-CHANNEL GAS TELEMETRY & SENSOR CONTROLLER
  * Active Sensors:
  * - MQ-2 (Combustible Gas / LPG / Smoke) on GPIO 34
- * - MQ-135 (Air Quality / NH3 / Ammonia) on GPIO 35 [Preserved Unchanged]
- * - MQ-7 (Carbon Monoxide / CO) Active Channel
- * - MQ-137 / MQ-136 (Nitrogen Dioxide / NO₂) Active Channel
- * - SGP30 / MQ (Carbon Dioxide CO₂ & TVOC) Active Digital Channel
+ * - MQ-135 (Air Quality / NH3 / Ammonia) on GPIO 35
+ * - MQ-7 (Carbon Monoxide / CO) on GPIO 32
+ * - SGP30 (Carbon Dioxide CO₂ & TVOC) Active Digital Channel
  * - Ambient Environmental Monitor (Temp / Humidity / Pressure)
  * ========================================================================================
  */
@@ -27,7 +27,6 @@ let THRESHOLDS = {
   mq2: { warn: 15.0, danger: 35.0 },
   mq135: { warn: 15.0, danger: 35.0 },
   co: { warn: 9.0, danger: 25.0 },
-  no2: { warn: 0.05, danger: 0.20 },
   co2: { warn: 1000.0, danger: 2000.0 }
 };
 
@@ -42,7 +41,7 @@ let state = {
   sessionStartTime: Date.now(),
   sessionHistory: [],
   snapshots: [],
-  peaks: { mq2: 0, mq135: 0, co: 0, no2: 0, co2: 400, temp: 0 }
+  peaks: { mq2: 0, mq135: 0, co: 0, co2: 400, temp: 0 }
 };
 
 const charts = {};
@@ -100,8 +99,6 @@ function applyThresholdsToUI() {
   const dMq135 = document.getElementById('cfg-dang-mq135');
   const wCo = document.getElementById('cfg-warn-co');
   const dCo = document.getElementById('cfg-dang-co');
-  const wNo2 = document.getElementById('cfg-warn-no2');
-  const dNo2 = document.getElementById('cfg-dang-no2');
   const wCo2 = document.getElementById('cfg-warn-co2');
   const dCo2 = document.getElementById('cfg-dang-co2');
 
@@ -111,8 +108,6 @@ function applyThresholdsToUI() {
   if (dMq135) dMq135.value = THRESHOLDS.mq135.danger;
   if (wCo) wCo.value = THRESHOLDS.co.warn;
   if (dCo) dCo.value = THRESHOLDS.co.danger;
-  if (wNo2) wNo2.value = THRESHOLDS.no2.warn;
-  if (dNo2) dNo2.value = THRESHOLDS.no2.danger;
   if (wCo2) wCo2.value = THRESHOLDS.co2.warn;
   if (dCo2) dCo2.value = THRESHOLDS.co2.danger;
 
@@ -122,8 +117,6 @@ function applyThresholdsToUI() {
   const limDMq135 = document.getElementById('lim-dang-mq135');
   const limWCo = document.getElementById('lim-warn-co');
   const limDCo = document.getElementById('lim-dang-co');
-  const limWNo2 = document.getElementById('lim-warn-no2');
-  const limDNo2 = document.getElementById('lim-dang-no2');
   const limWCo2 = document.getElementById('lim-warn-co2');
   const limDCo2 = document.getElementById('lim-dang-co2');
 
@@ -133,8 +126,6 @@ function applyThresholdsToUI() {
   if (limDMq135) limDMq135.innerText = THRESHOLDS.mq135.danger.toFixed(1);
   if (limWCo) limWCo.innerText = THRESHOLDS.co.warn.toFixed(1);
   if (limDCo) limDCo.innerText = THRESHOLDS.co.danger.toFixed(1);
-  if (limWNo2) limWNo2.innerText = THRESHOLDS.no2.warn.toFixed(2);
-  if (limDNo2) limDNo2.innerText = THRESHOLDS.no2.danger.toFixed(2);
   if (limWCo2) limWCo2.innerText = Math.round(THRESHOLDS.co2.warn);
   if (limDCo2) limDCo2.innerText = Math.round(THRESHOLDS.co2.danger);
 }
@@ -146,15 +137,12 @@ function saveThresholds() {
   const d135 = parseFloat(document.getElementById('cfg-dang-mq135')?.value);
   const wCo = parseFloat(document.getElementById('cfg-warn-co')?.value);
   const dCo = parseFloat(document.getElementById('cfg-dang-co')?.value);
-  const wNo2 = parseFloat(document.getElementById('cfg-warn-no2')?.value);
-  const dNo2 = parseFloat(document.getElementById('cfg-dang-no2')?.value);
   const wCo2 = parseFloat(document.getElementById('cfg-warn-co2')?.value);
   const dCo2 = parseFloat(document.getElementById('cfg-dang-co2')?.value);
 
   if (!isNaN(w2) && !isNaN(d2)) THRESHOLDS.mq2 = { warn: w2, danger: d2 };
   if (!isNaN(w135) && !isNaN(d135)) THRESHOLDS.mq135 = { warn: w135, danger: d135 };
   if (!isNaN(wCo) && !isNaN(dCo)) THRESHOLDS.co = { warn: wCo, danger: dCo };
-  if (!isNaN(wNo2) && !isNaN(dNo2)) THRESHOLDS.no2 = { warn: wNo2, danger: dNo2 };
   if (!isNaN(wCo2) && !isNaN(dCo2)) THRESHOLDS.co2 = { warn: wCo2, danger: dCo2 };
 
   localStorage.setItem('emmisense_multi_thresholds', JSON.stringify(THRESHOLDS));
@@ -166,7 +154,6 @@ function resetDefaultThresholds() {
     mq2: { warn: 15.0, danger: 35.0 },
     mq135: { warn: 15.0, danger: 35.0 },
     co: { warn: 9.0, danger: 25.0 },
-    no2: { warn: 0.05, danger: 0.20 },
     co2: { warn: 1000.0, danger: 2000.0 }
   };
   localStorage.removeItem('emmisense_multi_thresholds');
@@ -269,11 +256,6 @@ function initCharts() {
     charts['co'] = new Chart(coCanvas.getContext('2d'), createChartConfig('#f97316', 'Carbon Monoxide (CO)', 'ppm', 5));
   }
 
-  // 4. MQ-137 NO2: suggestedMax 0.05 ppm (ppb-scale gas)
-  const no2Canvas = document.getElementById('chart-no2');
-  if (no2Canvas) {
-    charts['no2'] = new Chart(no2Canvas.getContext('2d'), createChartConfig('#ec4899', 'Nitrogen Dioxide (NO₂)', 'ppm', 0.05));
-  }
 
   // 5. CO2: suggestedMax 600 ppm (ambient indoor range)
   const co2Canvas = document.getElementById('chart-co2');
@@ -289,12 +271,11 @@ function initCharts() {
 }
 
 
-function pushChartData(timeLabel, mq2Ppm, mq135Ppm, coPpm, no2Ppm, co2Ppm, tempC) {
+function pushChartData(timeLabel, mq2Ppm, mq135Ppm, coPpm, co2Ppm, tempC) {
   const chartFeeds = [
     { key: 'mq2', val: mq2Ppm },
     { key: 'mq135', val: mq135Ppm },
     { key: 'co', val: coPpm },
-    { key: 'no2', val: no2Ppm },
     { key: 'co2', val: co2Ppm },
     { key: 'env', val: tempC }
   ];
@@ -562,14 +543,12 @@ function simulateSensorTick() {
   const simMq2Ppm = Math.max(0.5, parseFloat((1.35 + Math.sin(simPhase * 0.8) * 0.75 + noise).toFixed(2)));
   const simMq135Ppm = Math.max(0.3, parseFloat((0.85 + Math.sin(simPhase) * 0.35 + noise).toFixed(2)));
   const simCoPpm = Math.max(0.5, parseFloat((2.15 + Math.cos(simPhase * 0.7) * 0.45 + noise).toFixed(2)));
-  const simNo2Ppm = Math.max(0.005, parseFloat((0.032 + Math.sin(simPhase * 0.5) * 0.008 + (noise * 0.01)).toFixed(3)));
   const simCo2Ppm = Math.round(415 + Math.sin(simPhase * 0.4) * 35 + (Math.random() * 10));
   const simTvoc = Math.round(26 + Math.cos(simPhase * 0.6) * 12 + (Math.random() * 5));
 
   const simMq2Adc = Math.round(820 + Math.sin(simPhase * 0.8) * 160 + (Math.random() * 20));
   const simMq135Adc = Math.round(960 + Math.sin(simPhase) * 160 + (Math.random() * 20));
   const simCoAdc = Math.round(520 + Math.cos(simPhase * 0.7) * 45 + (Math.random() * 10));
-  const simNo2Adc = Math.round(410 + Math.sin(simPhase * 0.5) * 35 + (Math.random() * 10));
 
   const sampleData = {
     mq2_ppm: simMq2Ppm,
@@ -581,9 +560,6 @@ function simulateSensorTick() {
     co: simCoPpm,
     mq7_adc: simCoAdc,
     mq7_volts: parseFloat(((simCoAdc / 4095.0) * 3.3).toFixed(3)),
-    no2: simNo2Ppm,
-    mq137_adc: simNo2Adc,
-    mq137_volts: parseFloat(((simNo2Adc / 4095.0) * 3.3).toFixed(3)),
     co2: simCo2Ppm,
     tvoc: simTvoc,
     sgp30_status: "ONLINE",
@@ -593,8 +569,7 @@ function simulateSensorTick() {
     raw: {
       mq2_adc: simMq2Adc,
       mq135_adc: simMq135Adc,
-      co_adc: simCoAdc,
-      no2_adc: simNo2Adc
+      co_adc: simCoAdc
     }
   };
 
@@ -653,20 +628,7 @@ function processTelemetryPacket(data, latencyMs = 0) {
     co_ppm = parseFloat((0.50 + ((co_adc - 100) / 1400.0) * 3.50).toFixed(2));
   }
 
-  // 4. Parse MQ-137 / NO2 (Nitrogen Dioxide)
-  let no2_ppm = data.no2 !== undefined 
-    ? parseFloat(data.no2) 
-    : (data.mq137_no2 !== undefined ? parseFloat(data.mq137_no2) : 0.009);
-
-  let no2_adc = data.mq137_adc !== undefined 
-    ? parseInt(data.mq137_adc) 
-    : (data.raw?.no2_adc !== undefined ? parseInt(data.raw.no2_adc) : 290);
-
-  let no2_volts = data.mq137_volts !== undefined 
-    ? parseFloat(data.mq137_volts) 
-    : parseFloat(((no2_adc / 4095.0) * 3.3).toFixed(2));
-
-  // 5. Parse SCD40 / CO2 & TVOC
+  // 4. Parse SCD40 / CO2 & TVOC
   let co2_ppm = data.scd40_co2 !== undefined 
     ? parseFloat(data.scd40_co2) 
     : (data.co2 !== undefined ? parseFloat(data.co2) : (data.sgp30_eco2 !== undefined ? parseFloat(data.sgp30_eco2) : 408));
@@ -686,7 +648,6 @@ function processTelemetryPacket(data, latencyMs = 0) {
   if (mq2_ppm > state.peaks.mq2) state.peaks.mq2 = mq2_ppm;
   if (mq135_ppm > state.peaks.mq135) state.peaks.mq135 = mq135_ppm;
   if (co_ppm > state.peaks.co) state.peaks.co = co_ppm;
-  if (no2_ppm > state.peaks.no2) state.peaks.no2 = no2_ppm;
   if (co2_ppm > state.peaks.co2) state.peaks.co2 = co2_ppm;
   if (temp_c > state.peaks.temp) state.peaks.temp = temp_c;
 
@@ -697,7 +658,6 @@ function processTelemetryPacket(data, latencyMs = 0) {
     mq2_ppm: mq2_ppm,
     mq135_ppm: mq135_ppm,
     co_ppm: co_ppm,
-    no2_ppm: no2_ppm,
     co2_ppm: co2_ppm,
     mq2_adc: mq2_adc,
     mq135_adc: mq135_adc,
@@ -715,7 +675,6 @@ function processTelemetryPacket(data, latencyMs = 0) {
   updateSensorCard('mq2', mq2_ppm, mq2_adc, mq2_volts, THRESHOLDS.mq2, 2);
   updateSensorCard('mq135', mq135_ppm, mq135_adc, mq135_volts, THRESHOLDS.mq135, 2);
   updateSensorCard('co', co_ppm, co_adc, co_volts, THRESHOLDS.co, 2);
-  updateSensorCard('no2', no2_ppm, no2_adc, no2_volts, THRESHOLDS.no2, 3);
   updateSensorCard('co2', co2_ppm, 0, 0, THRESHOLDS.co2, 0);
 
   // Update SCD40 / CO2 card specific labels
@@ -760,9 +719,6 @@ function processTelemetryPacket(data, latencyMs = 0) {
   const elRegCoAdc = document.getElementById('reg-co-adc');
   if (elRegCoAdc) elRegCoAdc.innerText = `${co_adc} ADC`;
 
-  const elRegNo2Adc = document.getElementById('reg-no2-adc');
-  if (elRegNo2Adc) elRegNo2Adc.innerText = `${no2_adc} ADC`;
-
   const elRegMq2Volts = document.getElementById('reg-mq2-volts');
   if (elRegMq2Volts) elRegMq2Volts.innerText = `${mq2_volts.toFixed(3)} V`;
 
@@ -771,9 +727,6 @@ function processTelemetryPacket(data, latencyMs = 0) {
 
   const elRegCoVolts = document.getElementById('reg-co-volts');
   if (elRegCoVolts) elRegCoVolts.innerText = `${co_volts.toFixed(3)} V`;
-
-  const elRegNo2Volts = document.getElementById('reg-no2-volts');
-  if (elRegNo2Volts) elRegNo2Volts.innerText = `${no2_volts.toFixed(3)} V`;
 
   const elRegMq2Ppm = document.getElementById('reg-mq2-ppm');
   if (elRegMq2Ppm) elRegMq2Ppm.innerText = `${mq2_ppm.toFixed(2)} ppm`;
@@ -788,10 +741,10 @@ function processTelemetryPacket(data, latencyMs = 0) {
   if (elRegLat) elRegLat.innerText = `${latencyMs} ms`;
 
   // Push Data to Charts
-  pushChartData(timeLabel, mq2_ppm, mq135_ppm, co_ppm, no2_ppm, co2_ppm, temp_c);
+  pushChartData(timeLabel, mq2_ppm, mq135_ppm, co_ppm, co2_ppm, temp_c);
 
   // Calculate Aggregate Environmental Air Quality Index
-  calculateOverallAirIndex(mq2_ppm, mq135_ppm, co_ppm, no2_ppm, co2_ppm);
+  calculateOverallAirIndex(mq2_ppm, mq135_ppm, co_ppm, co2_ppm);
 }
 
 function updateSensorCard(key, ppm, adc, volts, threshold, decimals = 2) {
@@ -832,7 +785,7 @@ function updateSensorCard(key, ppm, adc, volts, threshold, decimals = 2) {
   }
 }
 
-function calculateOverallAirIndex(mq2Ppm, mq135Ppm, coPpm = 0, no2Ppm = 0, co2Ppm = 400) {
+function calculateOverallAirIndex(mq2Ppm, mq135Ppm, coPpm = 0, co2Ppm = 400) {
   // Score for MQ-2 (Combustible/Smoke)
   let scoreMq2 = (mq2Ppm / THRESHOLDS.mq2.danger) * 40;
   
@@ -849,13 +802,10 @@ function calculateOverallAirIndex(mq2Ppm, mq135Ppm, coPpm = 0, no2Ppm = 0, co2Pp
   // Score for CO
   let scoreCo = (coPpm / THRESHOLDS.co.danger) * 35;
 
-  // Score for NO2
-  let scoreNo2 = (no2Ppm / THRESHOLDS.no2.danger) * 35;
-
   // Score for CO2
   let scoreCo2 = Math.max(0, ((co2Ppm - 400) / (THRESHOLDS.co2.danger - 400)) * 30);
 
-  const combinedScore = Math.round(Math.max(scoreMq2, scoreMq135, scoreCo, scoreNo2, scoreCo2));
+  const combinedScore = Math.round(Math.max(scoreMq2, scoreMq135, scoreCo, scoreCo2));
   const totalScore = Math.min(100, Math.max(10, combinedScore));
 
   const scoreEl = document.getElementById('overallScoreVal');
@@ -939,7 +889,6 @@ function renderSnapshotsTable() {
       <td><b style="color: var(--accent-teal); font-size: 1rem;">${s.mq2_ppm.toFixed(2)}</b></td>
       <td><b style="color: var(--accent-purple); font-size: 1rem;">${s.mq135_ppm.toFixed(2)}</b></td>
       <td><b style="color: var(--accent-orange); font-size: 1rem;">${(s.co_ppm || 0).toFixed(2)}</b></td>
-      <td><b style="color: var(--accent-pink); font-size: 1rem;">${(s.no2_ppm || 0).toFixed(3)}</b></td>
       <td><b style="color: var(--accent-cyan); font-size: 1rem;">${Math.round(s.co2_ppm || 400)}</b></td>
       <td>${s.mq2_adc}</td>
       <td>${s.mq135_adc}</td>
@@ -964,7 +913,7 @@ function exportCSV() {
 
   const headers = [
     "Timestamp_ISO", "Local_Time", 
-    "MQ2_Combustible_PPM", "MQ135_AirQuality_PPM", "MQ7_CO_PPM", "NO2_PPM", "CO2_PPM",
+    "MQ2_Combustible_PPM", "MQ135_AirQuality_PPM", "MQ7_CO_PPM", "CO2_PPM",
     "MQ2_Raw_ADC", "MQ135_Raw_ADC", "MQ7_Raw_ADC",
     "MQ2_Voltage_V", "MQ135_Voltage_V", "MQ7_Voltage_V", "Latency_ms"
   ];
@@ -977,7 +926,6 @@ function exportCSV() {
       row.mq2_ppm,
       row.mq135_ppm,
       row.co_ppm || 0,
-      row.no2_ppm || 0,
       row.co2_ppm || 400,
       row.mq2_adc,
       row.mq135_adc,
