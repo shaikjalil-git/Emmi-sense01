@@ -254,37 +254,6 @@
         </div>
       </div>
 
-      <!-- 4. ACTIVE SENSOR: MQ-137 / MQ-136 NITROGEN DIOXIDE (NO2) -->
-      <div class="sensor-card card-active-no2" id="card-no2">
-        <div class="card-header">
-          <div class="sensor-info">
-            <span class="sensor-chip" style="color: var(--accent-pink); font-weight: 800;">ACTIVE CHANNEL • MQ-137</span>
-            <h3>MQ-137 • Nitrogen Dioxide <span class="chem-formula">(NO₂)</span></h3>
-          </div>
-          <span class="threshold-pill pill-safe" id="badge-no2">SAFE</span>
-        </div>
-        <div class="reading-row">
-          <div class="reading-value-wrap">
-            <span class="reading-value" id="val-no2">0.000</span>
-            <span class="reading-unit">ppm</span>
-          </div>
-          <div class="limits-info">
-            <span>Warn: &gt;<b id="lim-warn-no2">0.05</b></span>
-            <span>Danger: &gt;<b id="lim-dang-no2">0.20</b></span>
-          </div>
-        </div>
-        <div class="chart-wrapper">
-          <div class="chart-live-badge"><span class="chart-live-dot" style="background: var(--accent-pink);"></span> Live</div>
-          <div class="chart-container chart-no2-accent">
-            <canvas id="chart-no2"></canvas>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span class="raw-label">Raw: <code id="raw-no2">-- ADC</code></span>
-          <span class="raw-label">Volt: <code id="volt-no2">-- V</code></span>
-          <span class="peak-label">Peak: <b id="peak-no2">0.000</b> ppm</span>
-        </div>
-      </div>
 
       <!-- 5. ACTIVE SENSOR: CARBON DIOXIDE & VOCs (CO2 & VOC) -->
       <div class="sensor-card card-active-co2" id="card-co2">
@@ -398,10 +367,6 @@
             <span class="raw-k">MQ-7 Raw ADC (GPIO 32)</span>
             <span class="raw-v" id="reg-co-adc" style="color: var(--accent-orange);">-- ADC</span>
           </div>
-          <div class="raw-box" style="border-color: var(--accent-pink);">
-            <span class="raw-k">MQ-137 (NO₂) Raw ADC</span>
-            <span class="raw-v" id="reg-no2-adc" style="color: var(--accent-pink);">-- ADC</span>
-          </div>
           <div class="raw-box">
             <span class="raw-k">MQ-2 Analog Voltage (GPIO 34)</span>
             <span class="raw-v" id="reg-mq2-volts">-- V</span>
@@ -413,10 +378,6 @@
           <div class="raw-box">
             <span class="raw-k">MQ-7 Analog Voltage (GPIO 32)</span>
             <span class="raw-v" id="reg-co-volts">-- V</span>
-          </div>
-          <div class="raw-box">
-            <span class="raw-k">MQ-137 (NO₂) Voltage</span>
-            <span class="raw-v" id="reg-no2-volts">-- V</span>
           </div>
           <div class="raw-box">
             <span class="raw-k">MQ-2 Combustible Gas</span>
@@ -447,7 +408,6 @@
               <th>MQ-2 (ppm)</th>
               <th>MQ-135 (ppm)</th>
               <th>MQ-7 CO (ppm)</th>
-              <th>NO₂ (ppm)</th>
               <th>CO₂ (ppm)</th>
               <th>MQ-2 ADC</th>
               <th>MQ-135 ADC</th>
@@ -494,13 +454,6 @@
           <div class="dual-input">
             <input type="number" step="0.5" id="cfg-warn-co" value="9.0" onchange="saveThresholds()">
             <input type="number" step="0.5" id="cfg-dang-co" value="25.0" onchange="saveThresholds()">
-          </div>
-        </div>
-        <div class="thresh-item" style="border: 1.5px solid var(--accent-pink); border-radius: var(--radius-md); padding: 14px; background: var(--bg-card);">
-          <label style="color: var(--accent-pink); font-weight: 800;">MQ-137 Nitrogen Dioxide (ppm) [Warn / Danger]</label>
-          <div class="dual-input">
-            <input type="number" step="0.01" id="cfg-warn-no2" value="0.05" onchange="saveThresholds()">
-            <input type="number" step="0.01" id="cfg-dang-no2" value="0.20" onchange="saveThresholds()">
           </div>
         </div>
         <div class="thresh-item" style="border: 1.5px solid var(--accent-cyan); border-radius: var(--radius-md); padding: 14px; background: var(--bg-card);">
