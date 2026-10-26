@@ -203,15 +203,12 @@ void handleData() {
     sgp_tvoc = sgp.TVOC;
     sgp_eco2 = sgp.eCO2;
   } else {
-    sgp_tvoc = (uint16_t)getChannelWave(18.0f, 6.0f, 1500);
-    sgp_eco2 = (uint16_t)getChannelWave(408.0f, 14.0f, 3000);
+    // Gentle sine-wave simulation so CO2/TVOC are never constant
+    sgp_tvoc = (uint16_t)getChannelWave(20.0f, 8.0f, 1500);
+    sgp_eco2 = (uint16_t)getChannelWave(410.0f, 18.0f, 3000);
   }
 
-  // Active smooth readings for other auxiliary channels
-  float no2_ppm = getChannelWave(0.009f, 0.003f, 7500);
-  int no2_raw = (int)getChannelWave(290.0f, 20.0f, 7500);
-  float no2_volts = round(((float)no2_raw / 4095.0f * 3.3f) * 1000.0f) / 1000.0f;
-
+  // Ambient environment channels
   float temp_c = getChannelWave(24.5f, 0.6f, 9000);
   float humidity_pct = getChannelWave(52.0f, 2.0f, 9500);
   float pressure_hpa = getChannelWave(1013.2f, 0.8f, 11000);
@@ -238,11 +235,6 @@ void handleData() {
   doc["mq135_volts"] = round(mq135_volts * 1000.0f) / 1000.0f;
   doc["mq7_volts"] = round(mq7_volts * 1000.0f) / 1000.0f;
 
-  // Auxiliary channels
-  doc["no2"] = round(no2_ppm * 1000.0f) / 1000.0f;
-  doc["mq137_no2"] = round(no2_ppm * 1000.0f) / 1000.0f;
-  doc["mq137_adc"] = no2_raw;
-  doc["mq137_volts"] = no2_volts;
 
   // SGP30 / CO2 / TVOC
   doc["scd40_co2"] = sgp_eco2;
@@ -267,7 +259,6 @@ void handleData() {
   doc["raw"]["mq7_adc"] = mq7_raw;
   doc["raw"]["co_adc"] = mq7_raw;
   doc["raw"]["nh3_adc"] = mq135_raw;
-  doc["raw"]["no2_adc"] = no2_raw;
   doc["raw"]["co2_val"] = sgp_eco2;
 
   String jsonOutput;
